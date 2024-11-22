@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cs</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            opacity: 0.15;
+        }
+
+        #chessboard {
+            display: grid;
+            /* grid-template-columns: repeat(8, 1fr); */
+            grid-template-rows: repeat(8, 1fr);
+            width: 400px;
+            height: 400px;
+            margin-bottom: 20px;
+            user-select: none;
+        }
+
+        .square {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            cursor: pointer;
+        }
+
+        .white {
+            background-color: white;
+        }
+
+        .black {
+            background-color: rgb(255, 245, 245);
+        }
+
+        .highlight {
+            background-color: yellow;
+        }
+
+        #status {
+            font-size: 1.5em;
+        }
+        .row_area{
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+        }
+        div[data-team="white"]{
+            color: white;
+            text-shadow: 3px 3px gray;
+        }
+        div[data-team="black"]{
+            color: black;
+            text-shadow: 0px 3px #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="chessboard"></div>
+    <div id="status">흰색 턴</div>
+    <script>
+        const chessboard = document.getElementById('chessboard');
+        const statusDisplay = document.getElementById('status');
+        let currentTurn = 'white';
+        let selectedSquare = null;
+        let alphabetArr = ["A","B","C","D","E","F","G","H"]
+
+        // 체스 보드 생성
+        function createBoard() {
+            for (let row = 0; row < 8; row++) {
+                const squareBox = document.createElement('div');
+                    squareBox.classList.add('row_area');
+                    chessboard.appendChild(squareBox);
+                    squareBox.dataset.row = alphabetArr[row];
+                for (let col = 0; col < 8; col++) {
+                    const square = document.createElement('div');
+                    square.classList.add('square');
+                    square.classList.add('col_area');
+                    square.classList.add((row + col) % 2 === 0 ? 'white' : 'black');
+                    square.dataset.row = row;
+                    square.dataset.col = col;
+                    square.dataset.position = alphabetArr[row]+(Number(col)+1);
+                    square.addEventListener('click', () => handleSquareClick(square));
+                    squareBox.appendChild(square);
+                }
+            }
+        }
+
+        // 색상 세팅
+        function piecesSetting(square, currentTeam){
+            square.dataset.team = "";
+            square.dataset.team = currentTeam;
+            square.dataset.type = square.innerText;
+        }
+
+        let squareArr =  [
+                    ["A1","A2","A3","A4","A5","A6","A7","A8"],
+                    ["B1","B2","B3","B4","B5","B6","B7","B8"],
+                    ["C1","C2","C3","C4","C5","C6","C7","C8"],
+                    ["D1","D2","D3","D4","D5","D6","D7","D8"],
+                    ["E1","E2","E3","E4","E5","E6","E7","E8"],
+                    ["F1","F2","F3","F4","F5","F6","F7","F8"],
+                    ["G1","G2","G3","G4","G5","G6","G7","G8"],
+                    ["H1","H2","H3","H4","H5","H6","H7","H8"],
+                ]
+        // 기물 배치
+        function placePieces() {
+            const pieces = [
+                '♖', '♘', '♗', '♕', '♔', '♗', '♘', '♖', // 흰색 기물
+                '♟', '♟', '♟', '♟', '♟', '♟', '♟', '♟',  // 흰색 기물
+                '♟', '♟', '♟', '♟', '♟', '♟', '♟', '♟',  // 흑색 기물
+                '♖', '♘', '♗', '♔', '♕', '♗', '♘', '♖', // 흑색 기물
+            ];
+            const squares = document.querySelectorAll('.square');
+            // 흰색 기물 배치
+            pieces.forEach((piece, index) => {
+                if (index < 8) {
+                    squares[index].innerText = piece; // 1행에 흰색 기물 배치
+                    piecesSetting(squares[index], "white");
+                } else if (index < 16) {
+                    squares[index].innerText = piece; // 2행에 흰색 기물 배치
+                    piecesSetting(squares[index], "white");
+                } else if (index < 24) {
+                    squares[index + 32].innerText = piece; // 2행에 흑색 기물 배치
+                    piecesSetting(squares[index +32], "black");
+                } else if (index < 32) {
+                    squares[index + 32].innerText = piece; // 2행에 흑색 기물 배치
+                    piecesSetting(squares[index +32], "black");
+                }
+                // 배치 판을 8x8 배열로 만드는게 좋아보이는데
+                /*
+                squares : [
+                    [A1,A2,A3,A4,A5,A6,A7,A8],
+                    [B1,B2,B3,B4,B5,B6,B7,B8],
+                    [C1,C2,C3,C4,C5,C6,C7,C8],
+                    [D1,D2,D3,D4,D5,D6,D7,D8],
+                    [E1,E2,E3,E4,E5,E6,E7,E8],
+                    [F1,F2,F3,F4,F5,F6,F7,F8],
+                    [G1,G2,G3,G4,G5,G6,G7,G8],
+                    [H1,H2,H3,H4,H5,H6,H7,H8],
+                ]
+                // 룩 A2
+                룩 이동 메커니즘 : B4, C1, C3
+                룩 D5
+                룩 이동 메커니즘 : B4,B6,C3,C7,E3,E7,F4,F6
+                -2행 -1열, -2행 +1열, -1행 +2열, +1행 +2열,
+                -1행 -2열, +1행 +2열, +2행 -1열, +2행 +1열
+                행, 열 적용시 값이 모두 에러가 아니면 이동 가능. 하나라도 에러라면 그 곳은 못감.
+                */
+
+
+            });
+            // for (let i = 0; i < squares.length; i++) {
+            //     const element = squares[i];
+            // }
+        }
+
+        // 기물 클릭 처리
+        function handleSquareClick(square) {
+            const row = parseInt(square.dataset.row);
+            const col = parseInt(square.dataset.col);
+            const team = square.dataset.team;
+            const piece = square.innerText;
+
+            if (selectedSquare) {
+                // 클릭한 내 기물 한번 더 클릭시
+                if(selectedSquare == square) {
+                    clearHighlights();
+                    selectedSquare = null;
+                    return
+                }
+                // 내 다른 기물 클릭시
+                let myTeamPlace = findTeamPlace(currentTurn);
+                // console.log("myTeamPlace : ",myTeamPlace);
+                for (let i = 0; i < myTeamPlace.length; i++) {
+                    const el = myTeamPlace[i];
+                    if(el[0] == square.dataset.row && el[1] == square.dataset.col){
+                        clearHighlights();
+                        selectedSquare = null;
+                        console.log("내 다른 기물 클릭시 하이라이트 전환")
+                        return handleSquareClick(square)
+                    }
+                }
+
+                // 기물 이동
+                if (isValidMove(selectedSquare, square)) {
+                    let saveSelecetedSquare = selectedSquare;
+                    let saveSquare = square;
+                    let saveSquareType = [selectedSquare.dataset.type, square.dataset.type];
+                    console.log("saveSquareType" ,saveSquareType)
+                    // console.log("Validplace : ",Validplace(selectedSquare))
+
+                    // 상대 기물로 이동했다면 알리기 (임시)
+                    if(selectedSquare.dataset.team != square.dataset.team && square.dataset.team){
+                        alert((selectedSquare.dataset.team == "white" ? "흰색 " : "흑색 ") + selectedSquare.dataset.position + "의 " + selectedSquare.dataset.type + "가 " + (selectedSquare.dataset.team == "white" ? "흑색 " : "흰색 ") + square.dataset.position + "의" + selectedSquare.dataset.type + "을 잡았습니다!")
+                    }
+
+                    square.innerText = selectedSquare.innerText;
+                    selectedSquare.innerText = '';
+                    selectedSquare.dataset.team = "";
+                    selectedSquare.dataset.type = "";
+                    piecesSetting(square, currentTurn);
+                    currentTurn = currentTurn === 'white' ? 'black' : 'white';
+                    statusDisplay.innerText = currentTurn === 'white' ? '흰색 턴' : '흑색 턴';
+                    clearHighlights();
+                    selectedSquare = null;
+
+                    checkGameProgress(saveSelecetedSquare,saveSquare, saveSquareType);
+
+                } else return
+
+            } else {
+
+                if(currentTurn != team){ // 내 턴이 아니고 내 기물이 선택되지 않았을때 내 기물 선택시 리턴
+                    return
+                }
+
+                // 기물 선택
+                if ((piece.match(/[♖♘♗♕♔]/)) ||
+                    (piece.match(/[♟]/))) {
+                    selectedSquare = square;
+                    highlightValidMoves(square);
+                }
+            }
+        }
+
+        // 유효한 이동 하이라이트
+        function highlightValidMoves(square) {
+            const row = parseInt(square.dataset.row);
+            const col = parseInt(square.dataset.col);
+            const piece = square.innerText;
+            //이동반경 수정必
+            let placeArr = Validplace(square)
+            // console.log(placeArr);
+            if(placeArr.length == 0) return console.log("이동가능한 위치 없음. 하이라이트 함수 리턴");
+            placeArr.forEach((place,i)=>{
+                const moveableLocationRow = place[0];
+                const moveableLocationCol = place[1];
+
+                const targetSquare = document.querySelector(`.square[data-row="${moveableLocationRow}"][data-col="${moveableLocationCol}"]`);
+                // 이때 내 기물에는 그려지면 안됨.
+                if(targetSquare){
+                    targetSquare.classList.add('highlight');
+                }
+            })
+            /*
+            어떻게 해야 유효한 이동 여러개를 그릴까..
+            [A1, B5, C7] 이런식으로 반환하는 함수 만들어서 유효한 이동검사 및 하이라이트 적용에 쓰기
+            어떻게 만들것인가
+
+            [0,0],[0,1] 같은 포지션 위치를 반환 후 해당 포지션으로 [A1,B5]로 만드는 과정을 거쳐볼까?
+
+            [0,0]이 A1이라는걸 알게하고 A1로 A1의 위치를 찾고 A1에 내 기물이 있다면 못움직이는곳. 적기물이라면 잡을 수 있음. 
+
+            */
+        }
+
+        // 하이라이트 제거
+        function clearHighlights() {
+            const highlightedSquares = document.querySelectorAll('.highlight');
+            highlightedSquares.forEach(square => square.classList.remove('highlight'));
+        }
+
+        // 유효한 이동 위치 뽑기
+        function Validplace(square) {
+            let placeArr = [];
+            const row = parseInt(square.dataset.row);
+            const col = parseInt(square.dataset.col);
+            let piece = square.innerText
+
+            let enemyTeam = currentTurn == "white" ? "black" : "white";
+            let enemyTeamPlace = findTeamPlace(enemyTeam);
+            let myTeamPlace = findTeamPlace(currentTurn);
+            let allTeamPlace = findTeamPlace("all");
+            // console.log(enemyTeamPlace);
+            if(piece === '♟'){
+                let s = currentTurn == "white" ? 1 : -1;
+                let e = currentTurn == "white" ? 1 : 6;
+                // 대각선 앞에 적이 있을때?
+                for (let i = 0; i < enemyTeamPlace.length; i++) {
+                    const el = enemyTeamPlace[i];
+                    let breakVal1 = false;
+                    let breakVal2 = false;
+                    // console.log("el :", el);
+                    // console.log("[row + (1 * s),col + 1] , [row + (1 * s),col - 1] :", [row + (1 * s),col + 1], [row + (1 * s),col - 1]);
+
+                    if(el[0] == row + (1 * s) && el[1] == col + 1){
+                        placeArr.push([row + (1 * s),col + 1]);
+                        breakVal1 = true;
+                    }
+                    if(el[0] == row + (1 * s) && el[1] == col - 1){
+                        placeArr.push([row + (1 * s),col - 1]);
+                        breakVal2 = true;
+                    }
+                    if(breakVal1 && breakVal2) break;
+                }
+                // console.log("placeArr : ",placeArr);
+                if(placeArr.length > 0) {
+                    console.log(piece,"placeArr : ", placeArr)
+                    return placeArr;
+                }
+                
+
+                let checkOneFrontRow = true;
+                let checkTwoFrontRow = true;
+                for (let i = 0; i < allTeamPlace.length; i++) {
+                    const el = allTeamPlace[i];
+                    // console.log(el);
+                    if(el[0] == row + (1 * s) && el[1] == col){
+                        console.log("1칸 앞에 기물이 있다면 반복문 중단")
+                        // 1칸 앞에 기물이 있다면 반복문 중단
+                        checkOneFrontRow = false;
+                        break;
+                    }
+                    if(el[0] == row + (2 * s) && el[1] == col){
+                            // 2칸 앞에 기물이 있다면 반복문이 다음 번째로 넘어감
+                            checkTwoFrontRow = false;
+                    }
+                   
+                }
+                if(row == e){ // 첫시작 이라면
+                    if(checkTwoFrontRow) { // 2칸 앞 기물이 있는지 확인
+                        placeArr = [ [row + (1 * s),col], [row + (2 * s),col] ];
+                    }
+                } else { // 첫시작이 아니면
+                    if(checkOneFrontRow) { // 1칸 앞 기물이 있는지 확인
+                        placeArr = [ [row + (1 * s),col] ];
+                    }
+                }
+
+            } else if (piece == "♖"){
+                // 십자 형태로 직선 이동 가능, 막고있지않다면 거리제한 없음, 적 기물이 막고있다면 해당 기물을 잡을 수 있음, 내 기물이 막고있다면 그 위치 못감 
+                // 수직, 수평라인 반복문 돌리기
+                // console.log(row,col) // 0 7
+                // row가 0이 될때까지 - , 7이될때까지 + , col가 0이 될때까지 -, 7이 될때까지 + 반복문 돌리기.
+                // console.log("위로 col ++ for문 시작");
+                for (let i = row - 1; i > -1; i--) {
+                    // console.log("row = ",i , ", col = ", col);
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && col == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,col]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && col == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                // console.log("위로 col ++ for문 끝");
+                // console.log("아래로 col ++ for문 시작");
+                for (let i = row + 1; i < 8; i++) {
+                    // console.log(i);
+                    // console.log("row = ",i , ", col = ", col);
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && col == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,col]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && col == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                // console.log("아래로 col ++ for문 끝");
+                // console.log("좌로 row ++ for문 시작");
+                for (let i = col - 1; i > -1; i--) {
+                    // console.log(i);
+                    // console.log("row = ",row , ", col = ", i);
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(row == el[0] && i == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([row,i]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(row == el[0] && i == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                // console.log("좌로 row ++  for문 끝");
+                // console.log("우로 row ++ for문 시작");
+                for (let i = col + 1; i < 8; i++) {
+                    // console.log(i);
+                    // console.log("row = ",row , ", col = ", i);
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(row == el[0] && i == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([row,i]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(row == el[0] && i == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                // console.log("우로 row ++  for문 끝");
+            } else if(piece == "♘"){
+                // 룩 A2
+                /*
+                룩 이동 메커니즘 : B4, C1, C3
+                룩 D5
+                룩 이동 메커니즘 : B4,B6,C3,C7,E3,E7,F4,F6
+                -2행 -1열, -2행 +1열, -1행 +2열, +1행 +2열,
+                -1행 -2열, +1행 +2열, +2행 -1열, +2행 +1열
+                행, 열 적용시 값이 모두 에러가 아니면 이동 가능. 하나라도 에러라면 그 곳은 못감.
+                */
+                let pattern = [ [-2, -1], [-2,  1], [-1, -2], [-1,  2], [ 1, -2], [ 1,  2], [ 2, -1], [ 2,  1] ]
+                for (let i = 0; i < pattern.length; i++) {
+                    const el = pattern[i];
+                    let patternRow = row - el[0];
+                    let patternCol = col - el[1];
+                    let breakVal = false;
+
+                    // row나 col이 -이거나 8이상이면 리턴.
+                    if(patternRow < 0 || patternRow >= 8 || patternCol < 0 || patternCol >= 8) continue;
+                    // 내 기물이 있다면 다음 번째로 넘어감. 
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const myTeamEl = myTeamPlace[j];
+                        if(patternRow == myTeamEl[0] && patternCol == myTeamEl[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) continue;
+                    // console.log(i,el, patternRow, patternCol)
+
+                    placeArr.push([patternRow,patternCol])
+                }
+                // 
+                // 이동 가능위치 배열에 현재 순회중인 위치 담기
+            } else if(piece == "♗"){
+                let pattern = 1;
+                let patternCol = col;
+                // console.log("row = ",row , ", col = ", col);
+                // 위로 +1, 좌로 +1 되는 반복문
+                for (let i = row - 1; i > -1; i--) {
+                    patternCol = patternCol - pattern;
+
+                    if(patternCol < 0 || patternCol >= 8 ) break; // col이 0~7을 벗어나면 break
+                    // console.log("row = ",i , ", col = ", patternCol);
+                    
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,patternCol]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                patternCol = col; // patternCol 초기화
+                // 위로 +1, 우로 +1 되는 반복문
+                for (let i = row - 1; i > -1; i--) {
+                    patternCol = patternCol + pattern;
+
+                    if(patternCol < 0 || patternCol >= 8 ) break; // col이 0~7을 벗어나면 break
+                    // console.log("row = ",i , ", col = ", patternCol);
+                    
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,patternCol]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                // 아래로 +1, 좌로 +1 되는 반복문
+                patternCol = col; // patternCol 초기화
+                for (let i = row + 1; i < 8; i++) {
+                    patternCol = patternCol - pattern;
+
+                    if(patternCol < 0 || patternCol >= 8 ) break; // col이 0~7을 벗어나면 break
+                    // console.log("row = ",i , ", col = ", patternCol);
+                    
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,patternCol]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                patternCol = col; // patternCol 초기화
+                // 아래로 +1, 우로 +1 되는 반복문
+                for (let i = row + 1; i < 8; i++) {
+                    patternCol = patternCol + pattern;
+
+                    if(patternCol < 0 || patternCol >= 8 ) break; // col이 0~7을 벗어나면 break
+                    // console.log("row = ",i , ", col = ", patternCol);
+                    
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,patternCol]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+            } else if (piece == "♔"){
+                // console.log("위로 col ++ for문 시작");
+                for (let i = row - 1; i > -1; i--) {
+                    // console.log("row = ",i , ", col = ", col);
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && col == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,col]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && col == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                // console.log("위로 col ++ for문 끝");
+                // console.log("아래로 col ++ for문 시작");
+                for (let i = row + 1; i < 8; i++) {
+                    // console.log(i);
+                    // console.log("row = ",i , ", col = ", col);
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && col == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,col]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && col == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                // console.log("아래로 col ++ for문 끝");
+                // console.log("좌로 row ++ for문 시작");
+                for (let i = col - 1; i > -1; i--) {
+                    // console.log(i);
+                    // console.log("row = ",row , ", col = ", i);
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(row == el[0] && i == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([row,i]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(row == el[0] && i == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                // console.log("좌로 row ++  for문 끝");
+                // console.log("우로 row ++ for문 시작");
+                for (let i = col + 1; i < 8; i++) {
+                    // console.log(i);
+                    // console.log("row = ",row , ", col = ", i);
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(row == el[0] && i == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([row,i]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(row == el[0] && i == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                // console.log("우로 row ++  for문 끝");
+
+                let pattern = 1;
+                let patternCol = col;
+                // console.log("row = ",row , ", col = ", col);
+                // 위로 +1, 좌로 +1 되는 반복문
+                for (let i = row - 1; i > -1; i--) {
+                    patternCol = patternCol - pattern;
+
+                    if(patternCol < 0 || patternCol >= 8 ) break; // col이 0~7을 벗어나면 break
+                    // console.log("row = ",i , ", col = ", patternCol);
+                    
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,patternCol]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                patternCol = col; // patternCol 초기화
+                // 위로 +1, 우로 +1 되는 반복문
+                for (let i = row - 1; i > -1; i--) {
+                    patternCol = patternCol + pattern;
+
+                    if(patternCol < 0 || patternCol >= 8 ) break; // col이 0~7을 벗어나면 break
+                    // console.log("row = ",i , ", col = ", patternCol);
+                    
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,patternCol]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                // 아래로 +1, 좌로 +1 되는 반복문
+                patternCol = col; // patternCol 초기화
+                for (let i = row + 1; i < 8; i++) {
+                    patternCol = patternCol - pattern;
+
+                    if(patternCol < 0 || patternCol >= 8 ) break; // col이 0~7을 벗어나면 break
+                    // console.log("row = ",i , ", col = ", patternCol);
+                    
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,patternCol]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+                patternCol = col; // patternCol 초기화
+                // 아래로 +1, 우로 +1 되는 반복문
+                for (let i = row + 1; i < 8; i++) {
+                    patternCol = patternCol + pattern;
+
+                    if(patternCol < 0 || patternCol >= 8 ) break; // col이 0~7을 벗어나면 break
+                    // console.log("row = ",i , ", col = ", patternCol);
+                    
+                    // 내 기물이 있다면 반목문 중지. 
+                    let breakVal = false;
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const el = myTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) break;
+
+                    // 이동 가능위치 배열에 현재 순회중인 위치 담기
+                    placeArr.push([i,patternCol]);
+
+                    // 상대 기물이 있다면 반복문 중지
+                    for (let j = 0; j < enemyTeamPlace.length; j++) {
+                        const el = enemyTeamPlace[j];
+                        if(i == el[0] && patternCol == el[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    
+                    if(breakVal) break;
+                }
+            } else if(piece == "♕"){
+                /*
+                    [row - 1, col - 1] , [row - 1, col    ] , [row - 1, col + 1]
+                    [row    , col - 1] ,         ♕         , [row    , col + 1]
+                    [row + 1, col - 1] , [row + 1, col    ] , [row + 1, col + 1]
+                */
+               // 적이 있으면 가능하고 내 기물이 있으면 못움직임
+               let pattern = [ [-1, -1], [-1,  0], [-1, 1], [0,  -1], [0, 1], [ 1, -1], [ 1, 0], [ 1,  1] ]
+                for (let i = 0; i < pattern.length; i++) {
+                    const el = pattern[i];
+                    let patternRow = row - el[0];
+                    let patternCol = col - el[1];
+                    let breakVal = false;
+
+                    // row나 col이 -이거나 8이상이면 리턴.
+                    if(patternRow < 0 || patternRow >= 8 || patternCol < 0 || patternCol >= 8) continue;
+                    // 내 기물이 있다면 다음 번째로 넘어감. 
+                    for (let j = 0; j < myTeamPlace.length; j++) {
+                        const myTeamEl = myTeamPlace[j];
+                        if(patternRow == myTeamEl[0] && patternCol == myTeamEl[1]) {
+                            breakVal = true;
+                            break;
+                        }
+                    }
+                    if(breakVal) continue;
+
+                    placeArr.push([patternRow,patternCol])
+                }
+            }
+
+
+
+            console.log(piece,"placeArr : ", placeArr)
+
+            return placeArr;
+
+            // return square;
+        }
+
+        // setInterval(() => {
+        //     findTeamPlace("white");
+        // }, 500);
+        // 팀별 기물 위치 찾기
+        function findTeamPlace(team){
+            var squares = document.querySelectorAll(".square");
+
+            let findTeamSquares = [];
+
+            if(team == "all"){
+                squares.forEach((el)=>{
+                if(el.dataset.team){
+                    findTeamSquares.push([el.dataset.row,el.dataset.col]);
+                }
+                })
+                return findTeamSquares;
+            }
+
+            if(team == "white" || team == "black") true
+            else return console.log("error")
+            squares.forEach((el)=>{
+                if(el.dataset.team == team){
+                    findTeamSquares.push([el.dataset.row,el.dataset.col]);
+                }
+            })
+            return findTeamSquares;
+        }
+
+
+
+        // 유효한 이동 검사
+        function isValidMove(fromSquare, toSquare) {
+            let validPlace = Validplace(fromSquare);
+            if(validPlace.length > 0){
+                for (let i = 0; i < validPlace.length; i++) {
+                    const el = validPlace[i];
+                    if(toSquare.dataset.row == el[0] && toSquare.dataset.col == el[1]){
+                        i += validPlace;
+                        return true;
+                    }
+                }
+            }
+
+            // 현재는 이외의 모든 이동을 유효하다고 가정
+            // return true;
+        }
+
+        function checkGameProgress(fromSquare, toSquare, SquareType){
+            /*
+                턴이 끝나면 돌아오는 상대팀, 내 팀의 기물의 이동 가능한 경로 파악 후 
+                내 팀이 상대에게 체크,체크메이트가 되었을때, 
+                상대팀이 내 팀에게 체크,체크메이트가 되었을때를 알기
+
+                모든 기물의 이동 가능 위치를 순환하여 상대 킹의 위치가 있는지 파악하기. 
+
+                킹에게 갈 수 있는 상대의 말이 1개라면 체크, 2개이상일때 체크메이트.
+
+                킹을 잡으면 잡은 팀의 승리
+
+            */
+        //    console.log(blackTurn,"blackTurn")
+            const blackTurnSquare = document.querySelectorAll(`.square[data-team="white"]`);
+            const blackTurnKingSquare = document.querySelector(`.square[data-team="black"][data-type="♕"]`);
+            let blackTurnCheck = 0;
+            blackTurnSquare.forEach((el)=>{
+                let blackTurnValidPlace = Validplace(el);
+                // blackTurnValidPlace.length > 0 ? console.log("전체기물 이동가능한 위치 :",blackTurnValidPlace) : false;
+                if(blackTurnValidPlace.length > 0){
+                    blackTurnValidPlace.forEach((place)=>{
+                        // console.log(place[0],place[1], "place[0],place[1]", place[0] == blackTurnKingSquare.dataset.row, place[0] == blackTurnKingSquare.dataset.col )
+                        if(place[0] == blackTurnKingSquare.dataset.row && place[1] == blackTurnKingSquare.dataset.col){
+                            blackTurnCheck++;
+                        }
+                    })
+                }
+                
+            });
+            if(blackTurnCheck == 1){
+                // blackTurn의
+                alert("black의 체크1")
+            } else if (blackTurnCheck > 1){
+                alert("black의 체크메이트1")
+            }
+            
+            
+
+            const whiteTurnSquare = document.querySelectorAll(`.square[data-team="black"]`);
+            const whiteTurnKingSquare = document.querySelector(`.square[data-team="white"][data-type="♕"]`);
+            let whiteTurnCheck = 0;
+            whiteTurnSquare.forEach((el)=>{
+                let whiteTurnValidPlace = Validplace(el);
+                whiteTurnValidPlace.length > 0 ? console.log("전체기물 이동가능한 위치 :",whiteTurnValidPlace) : false;
+                if(whiteTurnValidPlace.length > 0){
+                    whiteTurnValidPlace.forEach((place)=>{
+                        console.log(place[0],place[1], "place[0],place[1]", place[0] == whiteTurnKingSquare.dataset.row,place[1] == whiteTurnKingSquare.dataset.col )
+                        if(place[0] == whiteTurnKingSquare.dataset.row && place[1] == whiteTurnKingSquare.dataset.col){
+                            whiteTurnCheck++;
+                        }
+                    })
+                }
+                
+            });
+            if(whiteTurnCheck == 1){
+                // whiteTurn의
+                alert("white의 체크2")
+            } else if (whiteTurnCheck > 1){
+                alert("white의 체크메이트2")
+            }
+
+            console.log("blackTurnCheck, whiteTurnCheck", blackTurnCheck,whiteTurnCheck )
+    
+            // console.log("fromSquare, toSquare : ",fromSquare, toSquare)
+            if(SquareType[0] && SquareType[1] == "♕"){
+                alert(`${currentTurn == "white" ? "흑색" : "흰색"} 승리!`);
+                location.reload(); // initGame으로 하면 중앙에 남는 기물이 있음.
+            }
+
+        }
+
+
+        // 게임 초기화
+        function initGame() {
+            createBoard();
+            placePieces();
+        }
+
+        /*
+         턴이 끝나면 돌아오는 상대팀, 내 팀의 기물의 이동 가능한 경로 파악 후 
+         내 팀이 상대에게 체크,체크메이트가 되었을때, 
+         상대팀이 내 팀에게 체크,체크메이트가 되었을때를 알기
+
+         모든 기물의 이동 가능 위치를 순환하여 상대 킹의 위치가 있는지 파악하기. 
+
+         킹에게 갈 수 있는 상대의 말이 1개라면 체크, 2개이상일때 체크메이트.
+         
+
+         킹을 잡으면 잡은 팀의 승리
+
+         폰이 끝까지 갔을때 교체가능한 기능
+         */
+
+
+        initGame();
+    </script>
+</body>
+</html>
