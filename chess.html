@@ -11,7 +11,7 @@
             align-items: center;
             height: 100vh;
             background-color: #f0f0f0;
-            opacity: 0.15;
+            opacity: 0.05;
         }
 
         #chessboard {
@@ -60,6 +60,17 @@
         div[data-team="black"]{
             color: black;
             text-shadow: 0px 3px #000;
+        }
+        @media screen and (max-width:500px) {
+            #chessboard{
+                width: 90vw;
+                height: 90vw;
+            }
+            .square{
+                width: auto;
+                height: auto;
+                font-size: 6vw;
+            }
         }
     </style>
 </head>
@@ -270,20 +281,20 @@
         }
 
         // 유효한 이동 위치 뽑기
-        function Validplace(square) {
+        function Validplace(square, currentTurnParams = currentTurn) {
             let placeArr = [];
             const row = parseInt(square.dataset.row);
             const col = parseInt(square.dataset.col);
             let piece = square.innerText
 
-            let enemyTeam = currentTurn == "white" ? "black" : "white";
+            let enemyTeam = currentTurnParams == "white" ? "black" : "white";
             let enemyTeamPlace = findTeamPlace(enemyTeam);
-            let myTeamPlace = findTeamPlace(currentTurn);
+            let myTeamPlace = findTeamPlace(currentTurnParams);
             let allTeamPlace = findTeamPlace("all");
             // console.log(enemyTeamPlace);
             if(piece === '♟'){
-                let s = currentTurn == "white" ? 1 : -1;
-                let e = currentTurn == "white" ? 1 : 6;
+                let s = currentTurnParams == "white" ? 1 : -1;
+                let e = currentTurnParams == "white" ? 1 : 6;
                 // 대각선 앞에 적이 있을때?
                 for (let i = 0; i < enemyTeamPlace.length; i++) {
                     const el = enemyTeamPlace[i];
@@ -988,7 +999,8 @@
             const blackTurnKingSquare = document.querySelector(`.square[data-team="black"][data-type="♕"]`);
             let blackTurnCheck = 0;
             blackTurnSquare.forEach((el)=>{
-                let blackTurnValidPlace = Validplace(el);
+                let blackTurnValidPlace = Validplace(el,"white");
+                console.log("흰색 기물이 흑색 킹을 잡을 수 있는지 체크 : el, blackTurnValidPlace : ",el, blackTurnValidPlace)
                 // blackTurnValidPlace.length > 0 ? console.log("전체기물 이동가능한 위치 :",blackTurnValidPlace) : false;
                 if(blackTurnValidPlace.length > 0){
                     blackTurnValidPlace.forEach((place)=>{
@@ -1002,9 +1014,11 @@
             });
             if(blackTurnCheck == 1){
                 // blackTurn의
-                alert("black의 체크1")
+                console.log("black이 체크 당함")
+                alert("check")
             } else if (blackTurnCheck > 1){
-                alert("black의 체크메이트1")
+                console.log("black이 체크메이트 당함")
+                alert("checkmate")
             }
             
             
@@ -1012,24 +1026,27 @@
             const whiteTurnSquare = document.querySelectorAll(`.square[data-team="black"]`);
             const whiteTurnKingSquare = document.querySelector(`.square[data-team="white"][data-type="♕"]`);
             let whiteTurnCheck = 0;
+            let whiteArr = [];
             whiteTurnSquare.forEach((el)=>{
-                let whiteTurnValidPlace = Validplace(el);
-                whiteTurnValidPlace.length > 0 ? console.log("전체기물 이동가능한 위치 :",whiteTurnValidPlace) : false;
+                let whiteTurnValidPlace = Validplace(el,"black");
+                console.log("흑색 기물이 흰색 킹을 잡을 수 있는지 체크 : el, whiteTurnValidPlace : ",el, whiteTurnValidPlace)
+                // whiteTurnValidPlace.length > 0 ? console.log("전체기물 이동가능한 위치 :",whiteTurnValidPlace) : false;
                 if(whiteTurnValidPlace.length > 0){
                     whiteTurnValidPlace.forEach((place)=>{
-                        console.log(place[0],place[1], "place[0],place[1]", place[0] == whiteTurnKingSquare.dataset.row,place[1] == whiteTurnKingSquare.dataset.col )
+                        // console.log(place[0],place[1], "place[0],place[1]", place[0] == whiteTurnKingSquare.dataset.row,place[1] == whiteTurnKingSquare.dataset.col )
                         if(place[0] == whiteTurnKingSquare.dataset.row && place[1] == whiteTurnKingSquare.dataset.col){
                             whiteTurnCheck++;
                         }
                     })
                 }
-                
             });
             if(whiteTurnCheck == 1){
                 // whiteTurn의
-                alert("white의 체크2")
+                console.log("white이 체크 당함")
+                alert("check")
             } else if (whiteTurnCheck > 1){
-                alert("white의 체크메이트2")
+                console.log("white이 체크메이트 당함")
+                alert("checkmate")
             }
 
             console.log("blackTurnCheck, whiteTurnCheck", blackTurnCheck,whiteTurnCheck )
@@ -1050,14 +1067,6 @@
         }
 
         /*
-         턴이 끝나면 돌아오는 상대팀, 내 팀의 기물의 이동 가능한 경로 파악 후 
-         내 팀이 상대에게 체크,체크메이트가 되었을때, 
-         상대팀이 내 팀에게 체크,체크메이트가 되었을때를 알기
-
-         모든 기물의 이동 가능 위치를 순환하여 상대 킹의 위치가 있는지 파악하기. 
-
-         킹에게 갈 수 있는 상대의 말이 1개라면 체크, 2개이상일때 체크메이트.
-         
 
          킹을 잡으면 잡은 팀의 승리
 
